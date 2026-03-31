@@ -3,10 +3,12 @@ Validator utilities for checking data consistency with standardized format.
 
 Standardized format:
     data/questions/{domain}_task/{task_id}/
-    ├── first_frame.png          (required)
-    ├── final_frame.png          (required)
+    ├── first_frame.png          (required)  — first frame of first_video
+    ├── final_frame.png          (required)  — last frame of last_video
     ├── prompt.txt               (required)
-    └── ground_truth.mp4         (optional)
+    ├── first_video.mp4          (optional)  — opening segment video
+    ├── last_video.mp4           (optional)  — closing segment video
+    └── ground_truth.mp4         (optional)  — full video, beginning to end
 
 Functions:
 - validate_task_data() - Validate data matches standardized format
