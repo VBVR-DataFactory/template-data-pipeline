@@ -81,6 +81,21 @@ def process_sample(item: dict, idx: int, split: str, output_dir: Path) -> bool:
     final_frame.save(task_dir / "final_frame.png")
     (task_dir / "prompt.txt").write_text(prompt)
     
+    # Write optional video files if present in source dataset
+    for video_key, filename in [
+        ("first_video", "first_video.mp4"),
+        ("last_video", "last_video.mp4"),
+        ("ground_truth_video", "ground_truth.mp4"),
+    ]:
+        video_data = item.get(video_key)
+        if video_data is not None:
+            video_path = task_dir / filename
+            if isinstance(video_data, (str, Path)) and Path(video_data).exists():
+                import shutil
+                shutil.copy(video_data, video_path)
+            elif isinstance(video_data, bytes):
+                video_path.write_bytes(video_data)
+    
     return True
 
 
