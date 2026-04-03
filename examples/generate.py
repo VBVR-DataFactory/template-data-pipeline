@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                         DATASET PROCESSING SCRIPT                            ║
+║                        DATASET GENERATION SCRIPT                              ║
 ║                                                                               ║
 ║  Run this to download and convert a dataset to standardized format.          ║
 ║  Customize TaskConfig and TaskPipeline in src/ for your dataset.             ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 
 Usage:
-    python examples/process.py --num-samples 100
-    python examples/process.py --num-samples 100 --output data/my_dataset --split test
+    python examples/generate.py --num-samples 100
+    python examples/generate.py --num-samples 100 --output data/my_dataset --split test
 """
 
 import argparse
@@ -24,12 +24,12 @@ from src.pipeline import TaskPipeline, TaskConfig
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Download and process dataset to standardized format",
+        description="Download and generate dataset in standardized format",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python examples/process.py --num-samples 10
-    python examples/process.py --num-samples 100 --output data/output --split test
+    python examples/generate.py --num-samples 10
+    python examples/generate.py --num-samples 100 --output data/output --split test
         """
     )
     parser.add_argument(
@@ -53,7 +53,7 @@ Examples:
 
     args = parser.parse_args()
 
-    print(f"📦 Processing dataset...")
+    print(f"Generating dataset...")
 
     # ──────────────────────────────────────────────────────────────────────────
     #  Configure your pipeline here
@@ -66,7 +66,7 @@ Examples:
         split=args.split,
     )
 
-    # Run pipeline: download → process → write
+    # Run pipeline: download → transform → write
     pipeline = TaskPipeline(config)
     samples = pipeline.run()
 
