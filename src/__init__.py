@@ -1,6 +1,16 @@
-"""Task-specific pipeline — CUSTOMIZE these files when forking."""
+"""Task-specific modules — CUSTOMIZE these when forking.
 
-from .pipeline import TaskPipeline
-from .config import TaskConfig
+Two sub-modules:
+    src.download  — custom download logic
+    src.pipeline  — custom processing logic
+"""
 
-__all__ = ["TaskPipeline", "TaskConfig"]
+from .pipeline import TaskPipeline, TaskConfig
+from .download import create_downloader, TaskDownloader
+
+__all__ = [
+    "TaskPipeline",
+    "TaskConfig",
+    "create_downloader",
+    "TaskDownloader",
+]

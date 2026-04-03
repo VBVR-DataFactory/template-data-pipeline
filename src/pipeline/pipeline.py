@@ -1,14 +1,15 @@
 """
 Your pipeline implementation.
 
-CUSTOMIZE THIS FILE to define how your dataset is downloaded and processed.
-Subclasses BasePipeline and implements download() + process_sample().
+CUSTOMIZE THIS FILE to define how raw samples are processed into the
+standardized format. Subclasses BasePipeline and implements
+download() + process_sample().
 """
 
-from pathlib import Path
 from typing import Iterator, Optional
 
-from core import BasePipeline, HuggingFaceDownloader, SampleProcessor, TaskSample
+from core.pipeline import BasePipeline, SampleProcessor, TaskSample
+from core.download import run_download
 from .config import TaskConfig
 from . import transforms
 
@@ -24,17 +25,12 @@ class TaskPipeline(BasePipeline):
     def __init__(self, config: TaskConfig):
         super().__init__(config)
         self.task_config = config
-        self.downloader = HuggingFaceDownloader(
-            repo_id=config.hf_repo,
-            split=config.split,
-            raw_dir=Path("raw"),
-        )
 
     # ── 1) Download ───────────────────────────────────────────────────────
 
     def download(self) -> Iterator[dict]:
-        """Download VideoThinkBench from HuggingFace."""
-        yield from self.downloader.download(limit=self.config.num_samples)
+        """Download dataset via core.download → src.download."""
+        yield from run_download(self.task_config)
 
     # ── 2) Process ────────────────────────────────────────────────────────
 

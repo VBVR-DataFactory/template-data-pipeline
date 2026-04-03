@@ -1,8 +1,64 @@
-"""S3 upload / download utilities."""
+"""Core download module — fetch raw data from external sources.
+
+Provides generic download utilities (HuggingFace, S3). The actual
+dataset-specific download logic lives in ``src.download``; this module
+always delegates to it via :func:`run_download`.
+"""
 
 from pathlib import Path
-import boto3
+from typing import Iterator, Optional
 
+import boto3
+from datasets import load_dataset
+
+
+# ============================================================================
+#  HuggingFace downloader
+# ============================================================================
+
+class HuggingFaceDownloader:
+    """Download datasets from HuggingFace Hub into the ``raw/`` directory.
+
+    Wraps ``datasets.load_dataset`` with convenience helpers for streaming
+    and limiting the number of samples.
+    """
+
+    def __init__(self, repo_id: str, split: str = "test", raw_dir: Path = Path("raw")):
+        self.repo_id = repo_id
+        self.split = split
+        self.raw_dir = Path(raw_dir)
+
+    def download(self, limit: Optional[int] = None) -> Iterator[dict]:
+        """Download dataset and yield raw samples.
+
+        Raw data is cached under ``self.raw_dir``.
+
+        Args:
+            limit: Maximum number of samples to yield (None = all).
+
+        Yields:
+            Raw sample dicts straight from HuggingFace.
+        """
+        self.raw_dir.mkdir(parents=True, exist_ok=True)
+        print(f"Downloading {self.repo_id} (split: {self.split}) → {self.raw_dir}/")
+        dataset = load_dataset(
+            self.repo_id,
+            split=self.split,
+            cache_dir=str(self.raw_dir / ".cache"),
+        )
+
+        if limit is not None:
+            dataset = dataset.select(range(min(limit, len(dataset))))
+
+        print(f"Streaming {len(dataset)} samples...")
+
+        for item in dataset:
+            yield item
+
+
+# ============================================================================
+#  S3 upload / download utilities
+# ============================================================================
 
 def upload_directory_to_s3(
     local_dir: Path, bucket_name: str, s3_prefix: str = ""
@@ -98,3 +154,24 @@ def download_from_s3(
 
     print(f"\n✓ Download complete: {downloaded} files")
     return downloaded
+
+
+# ============================================================================
+#  Orchestration — delegates to src.download
+# ============================================================================
+
+def run_download(config) -> Iterator[dict]:
+    """Standard download entry point.
+
+    Imports and calls the custom downloader defined in ``src.download``.
+
+    Args:
+        config: A :class:`PipelineConfig` (or subclass) instance.
+
+    Yields:
+        Raw sample dicts from the custom downloader.
+    """
+    from src.download import create_downloader
+
+    downloader = create_downloader(config)
+    yield from downloader.download(limit=config.num_samples)
