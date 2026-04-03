@@ -1,6 +1,22 @@
-# Template Data Pipeline 📦
+# Template Data Pipeline
 
-A minimal template for converting existing datasets into the standardized VBVR format. Fork this and customize it for your dataset (HuggingFace, local files, APIs, etc.).
+A minimal template for converting existing datasets into the standardized VBVR format. Fork this repo and customize it for your dataset.
+
+---
+
+## Design Philosophy
+
+This template is built around two simple ideas:
+
+1. **Download** — Every dataset needs to be fetched from somewhere (HuggingFace, S3, local files, APIs, etc.). The canonical download orchestration lives in `core/download.py`, which delegates to your custom logic in `src/download/`. You write the downloader; the core handles the plumbing.
+
+2. **Pipeline** — Every dataset needs to be transformed into the standardized VBVR format. The base pipeline machinery lives in `core/pipeline.py`, which delegates to your custom logic in `src/pipeline/`. You write the transforms and field mappings; the core handles writing, validation, and orchestration.
+
+That's it. Download the data, then transform it.
+
+There is also an **Eval** module (`eval/`). It is standalone and optional, but should contain everything needed to evaluate the task — whether that's instructions for human evaluation, rule-based scoring, VLM-as-judge prompts, or anything else. It doesn't depend on `core/` or `src/`.
+
+**Each repo is one task.** Fork this template once per dataset/task you want to convert.
 
 ---
 
@@ -19,8 +35,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Process dataset
-python examples/process.py --num-samples 50
+# 4. Generate dataset
+python examples/generate.py --num-samples 50
 ```
 
 ---
@@ -29,10 +45,10 @@ python examples/process.py --num-samples 50
 
 ```
 template-data-pipeline/
-├── core/                        # ✅ KEEP: Standard utilities
-│   ├── download.py             # Download raw data (HuggingFace, S3) — delegates to src.download
-│   └── pipeline.py             # Process data (BasePipeline, OutputWriter, schemas) — delegates to src.pipeline
-├── src/                         # ⚠️ CUSTOMIZE: Your dataset logic
+├── core/                        # KEEP: Standard utilities (don't modify)
+│   ├── download.py             # Download orchestration — delegates to src/download
+│   └── pipeline.py             # Pipeline base class, output writer, schemas — delegates to src/pipeline
+├── src/                         # CUSTOMIZE: Your dataset logic
 │   ├── download/               # Custom download module
 │   │   ├── __init__.py
 │   │   └── downloader.py      #    Your download logic (called by core/download.py)
@@ -42,9 +58,11 @@ template-data-pipeline/
 │       ├── transforms.py      #    Your field mappings (source → standard format)
 │       └── config.py          #    Your configuration
 ├── examples/
-│   └── process.py              # Entry point
+│   └── generate.py             # Entry point
+├── eval/                        # STANDALONE: Evaluation (optional)
+│   ├── verify.py              #    Automated evaluation script
+│   └── EVAL.md                #    Evaluation guide & instructions
 ├── raw/                         # Downloaded raw data (gitignored)
-├── eval/                        # (optional) Evaluation tools
 └── data/questions/              # Processed output (gitignored)
 ```
 
@@ -139,7 +157,20 @@ class TaskConfig(PipelineConfig):
     hf_repo: str = Field(default="org/dataset-name")
 ```
 
-**Single entry point:** `python examples/process.py --num-samples 50`
+**Single entry point:** `python examples/generate.py --num-samples 50`
+
+---
+
+## Eval Module
+
+The `eval/` directory is standalone — it does not depend on `core/` or `src/`. It should contain everything needed to evaluate the task outputs. This could be:
+
+- **Rule-based evaluation** — automated scoring scripts (see `eval/verify.py`)
+- **Human evaluation** — rubrics, guidelines, comparison templates
+- **VLM-as-judge** — prompts and scripts for using vision-language models as evaluators
+- **Any combination** — whatever fits your task
+
+See `eval/EVAL.md` for the full evaluation guide.
 
 ---
 
