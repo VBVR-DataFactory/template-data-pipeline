@@ -5,6 +5,7 @@ CUSTOMIZE THIS FILE to define how your dataset is downloaded and processed.
 Subclasses BasePipeline and implements download() + process_sample().
 """
 
+from pathlib import Path
 from typing import Iterator, Optional
 
 from core import BasePipeline, HuggingFaceDownloader, SampleProcessor, TaskSample
@@ -14,8 +15,8 @@ from . import transforms
 
 class TaskPipeline(BasePipeline):
     """
-    VideoThinkBench pipeline — downloads from HuggingFace and converts
-    to the standardized format.
+    VideoThinkBench pipeline — downloads from HuggingFace into ``raw/``
+    and converts to the standardized format in ``data/questions/``.
 
     REPLACE THIS with your own dataset pipeline when forking.
     """
@@ -26,6 +27,7 @@ class TaskPipeline(BasePipeline):
         self.downloader = HuggingFaceDownloader(
             repo_id=config.hf_repo,
             split=config.split,
+            raw_dir=Path("raw"),
         )
 
     # ── 1) Download ───────────────────────────────────────────────────────

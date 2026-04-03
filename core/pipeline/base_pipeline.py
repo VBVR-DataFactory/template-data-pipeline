@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterator, List, Optional
 
-from .schemas import PipelineConfig, TaskSample
+from ..schemas import PipelineConfig, TaskSample
 from .output_writer import OutputWriter
 
 
@@ -83,7 +83,7 @@ class BasePipeline(ABC):
                 print(f"  Processed {processed} samples...")
 
         print(
-            f"✅ Done! Processed {processed} samples "
-            f"→ {self.config.output_dir}/{self.config.domain}_task/"
+            f"Done! Processed {processed} samples "
+            f"-> {self.config.output_dir}/{self.config.domain}_task/"
         )
         return samples

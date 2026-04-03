@@ -29,23 +29,26 @@ python examples/process.py --num-samples 50
 
 ```
 template-data-pipeline/
-├── core/                    # ✅ KEEP: Standard utilities
-│   ├── base_pipeline.py    # Abstract base class (download + process)
-│   ├── schemas.py          # Pydantic models (TaskSample, PipelineConfig)
-│   ├── downloader.py       # Download module (HuggingFace, etc.)
-│   ├── processor.py        # Process module (build standardized samples)
-│   ├── output_writer.py    # Write to standardized folder structure
-│   ├── image_utils.py      # Image conversion helpers
-│   ├── validator.py        # Format validation
-│   └── s3.py               # S3 upload / download
-├── src/                     # ⚠️ CUSTOMIZE: Your dataset logic
-│   ├── pipeline.py         # Your pipeline (subclasses BasePipeline)
-│   ├── transforms.py       # Your field mappings (source → standard format)
-│   └── config.py           # Your configuration
+├── core/                        # ✅ KEEP: Standard utilities
+│   ├── download/                # 1) Download module
+│   │   ├── downloader.py       #    HuggingFace dataset fetcher
+│   │   └── s3.py               #    S3 upload / download
+│   ├── pipeline/                # 2) Pipeline module
+│   │   ├── base_pipeline.py    #    Abstract base class (download + process)
+│   │   ├── processor.py        #    Build standardized TaskSamples
+│   │   ├── output_writer.py    #    Write to standardized folder structure
+│   │   ├── image_utils.py      #    Image conversion helpers
+│   │   └── validator.py        #    Format validation
+│   └── schemas.py              # Shared Pydantic models (TaskSample, PipelineConfig)
+├── src/                         # ⚠️ CUSTOMIZE: Your dataset logic
+│   ├── pipeline.py             # Your pipeline (subclasses BasePipeline)
+│   ├── transforms.py           # Your field mappings (source → standard format)
+│   └── config.py               # Your configuration
 ├── examples/
-│   └── process.py          # Entry point
-├── eval/                    # (optional) Evaluation tools
-└── data/questions/          # Output
+│   └── process.py              # Entry point
+├── raw/                         # Downloaded raw data (gitignored)
+├── eval/                        # (optional) Evaluation tools
+└── data/questions/              # Processed output (gitignored)
 ```
 
 ---

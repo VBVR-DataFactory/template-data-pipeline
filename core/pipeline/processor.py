@@ -1,10 +1,9 @@
 """Process module — transforms raw samples into the standardized format."""
 
 from typing import Optional, Dict, Any
-from PIL import Image
 
 from .image_utils import convert_to_pil_image
-from .schemas import TaskSample
+from ..schemas import TaskSample
 
 
 class SampleProcessor:

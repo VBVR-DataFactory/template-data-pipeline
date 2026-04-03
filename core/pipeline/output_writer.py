@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from typing import List
 
-from .schemas import TaskSample
+from ..schemas import TaskSample
 
 
 class OutputWriter:

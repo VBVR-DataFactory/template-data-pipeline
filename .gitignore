@@ -35,6 +35,8 @@ ENV/
 
 # Data directories
 data/
+raw/*
+!raw/.gitkeep
 outputs/
 cache/
 weights/
