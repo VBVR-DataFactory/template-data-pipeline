@@ -30,20 +30,17 @@ python examples/process.py --num-samples 50
 ```
 template-data-pipeline/
 ├── core/                        # ✅ KEEP: Standard utilities
-│   ├── download/                # 1) Download module
-│   │   ├── downloader.py       #    HuggingFace dataset fetcher
-│   │   └── s3.py               #    S3 upload / download
-│   ├── pipeline/                # 2) Pipeline module
-│   │   ├── base_pipeline.py    #    Abstract base class (download + process)
-│   │   ├── processor.py        #    Build standardized TaskSamples
-│   │   ├── output_writer.py    #    Write to standardized folder structure
-│   │   ├── image_utils.py      #    Image conversion helpers
-│   │   └── validator.py        #    Format validation
-│   └── schemas.py              # Shared Pydantic models (TaskSample, PipelineConfig)
+│   ├── download.py             # Download raw data (HuggingFace, S3) — delegates to src.download
+│   └── pipeline.py             # Process data (BasePipeline, OutputWriter, schemas) — delegates to src.pipeline
 ├── src/                         # ⚠️ CUSTOMIZE: Your dataset logic
-│   ├── pipeline.py             # Your pipeline (subclasses BasePipeline)
-│   ├── transforms.py           # Your field mappings (source → standard format)
-│   └── config.py               # Your configuration
+│   ├── download/               # Custom download module
+│   │   ├── __init__.py
+│   │   └── downloader.py      #    Your download logic (called by core/download.py)
+│   └── pipeline/               # Custom pipeline module
+│       ├── __init__.py
+│       ├── pipeline.py        #    Your pipeline (subclasses BasePipeline)
+│       ├── transforms.py      #    Your field mappings (source → standard format)
+│       └── config.py          #    Your configuration
 ├── examples/
 │   └── process.py              # Entry point
 ├── raw/                         # Downloaded raw data (gitignored)
@@ -70,37 +67,54 @@ data/questions/{domain}_task/{task_id}/
 
 ---
 
-## Customization (3 Files to Modify)
+## Customization (Two Modules to Modify)
 
-### 1. Update `src/pipeline.py`
+`core/download.py` always calls `src/download`, and `core/pipeline.py` always calls `src/pipeline`. Customize the `src/` modules for your dataset.
 
-Replace the example VideoThinkBench pipeline with your dataset:
+### 1. Update `src/download/downloader.py`
+
+Define how your dataset is downloaded:
 
 ```python
-from core import BasePipeline, HuggingFaceDownloader, SampleProcessor, TaskSample
+from core.download import HuggingFaceDownloader
 
-class TaskPipeline(BasePipeline):
+class TaskDownloader:
     def __init__(self, config):
-        super().__init__(config)
-        self.downloader = HuggingFaceDownloader(
+        self.hf_downloader = HuggingFaceDownloader(
             repo_id=config.hf_repo,
             split=config.split,
         )
 
+    def download(self, limit=None):
+        yield from self.hf_downloader.download(limit=limit)
+
+def create_downloader(config):
+    return TaskDownloader(config)
+```
+
+### 2. Update `src/pipeline/pipeline.py`
+
+Define how raw samples are processed:
+
+```python
+from core.pipeline import BasePipeline, SampleProcessor
+from core.download import run_download
+from . import transforms
+
+class TaskPipeline(BasePipeline):
     def download(self):
-        yield from self.downloader.download(limit=self.config.num_samples)
+        yield from run_download(self.task_config)
 
     def process_sample(self, raw_sample, idx):
         return SampleProcessor.build_sample(
             task_id=f"my_dataset_{idx:05d}",
             domain=self.task_config.domain,
-            first_image=raw_sample["image"],
-            prompt=raw_sample["question"],
-            final_image=raw_sample.get("target_image"),
+            first_image=transforms.extract_first_image(raw_sample),
+            prompt=transforms.extract_prompt(raw_sample),
         )
 ```
 
-### 2. Update `src/transforms.py`
+### 3. Update `src/pipeline/transforms.py`
 
 Map your source dataset fields to the standard format:
 
@@ -110,17 +124,14 @@ def extract_first_image(raw_sample: dict):
 
 def extract_prompt(raw_sample: dict) -> str:
     return raw_sample.get("question") or "Solve this task."
-
-def extract_final_image(raw_sample: dict):
-    return raw_sample.get("target_image")
 ```
 
-### 3. Update `src/config.py`
+### 4. Update `src/pipeline/config.py`
 
 Set your dataset-specific parameters:
 
 ```python
-from core import PipelineConfig
+from core.pipeline import PipelineConfig
 from pydantic import Field
 
 class TaskConfig(PipelineConfig):

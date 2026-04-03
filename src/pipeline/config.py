@@ -2,11 +2,11 @@
 Your pipeline configuration.
 
 CUSTOMIZE THIS FILE to define your dataset-specific settings.
-Inherits common settings from core.PipelineConfig.
+Inherits common settings from core.pipeline.PipelineConfig.
 """
 
 from pydantic import Field
-from core import PipelineConfig
+from core.pipeline import PipelineConfig
 
 
 class TaskConfig(PipelineConfig):
