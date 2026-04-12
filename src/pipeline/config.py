@@ -1,38 +1,30 @@
-"""
-Your pipeline configuration.
+"""Pipeline configuration for the Video-MCP style CoreCognition task."""
 
-CUSTOMIZE THIS FILE to define your dataset-specific settings.
-Inherits common settings from core.pipeline.PipelineConfig.
-"""
+from typing import Literal
 
 from pydantic import Field
+
 from core.pipeline import PipelineConfig
 
 
 class TaskConfig(PipelineConfig):
-    """
-    Your dataset-specific configuration.
+    """Dataset + rendering settings for Video-MCP style generation."""
 
-    CUSTOMIZE THIS CLASS for the dataset you are converting.
-
-    Inherited from PipelineConfig:
-        - num_samples: Optional[int]  # Max samples (None = all)
-        - domain: str                 # Task domain name
-        - output_dir: Path            # Where to save outputs
-        - split: str                  # Dataset split (default: "test")
-    """
-
-    # ======================================================================
-    #  OVERRIDE DEFAULTS
-    # ======================================================================
-
-    domain: str = Field(default="videothinkbench")
-
-    # ======================================================================
-    #  DATASET-SPECIFIC SETTINGS
-    # ======================================================================
+    domain: str = Field(default="corecognition")
+    split: str = Field(default="train")
 
     hf_repo: str = Field(
-        default="video-think-bench/VideoThinkBench",
+        default="williamium/CoreCognition",
         description="HuggingFace dataset repository ID",
     )
+    hf_zip_filename: str = Field(
+        default="CoreCognition_20250622.zip",
+        description="Complete dataset ZIP filename hosted in the HF repo",
+    )
+
+    # Video-MCP defaults (Wan2.2-compatible profile)
+    fps: int = Field(default=16, ge=1)
+    num_frames: int = Field(default=81, ge=5)
+    width: int = Field(default=832, ge=64)
+    height: int = Field(default=480, ge=64)
+    lit_style: Literal["darken", "red_border"] = Field(default="darken")

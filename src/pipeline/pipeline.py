@@ -1,10 +1,4 @@
-"""
-Your pipeline implementation.
-
-CUSTOMIZE THIS FILE to define how raw samples are processed into the
-standardized format. Subclasses BasePipeline and implements
-download() + process_sample().
-"""
+"""Video-MCP style pipeline implementation on top of core template orchestration."""
 
 from typing import Iterator, Optional
 
@@ -16,10 +10,7 @@ from . import transforms
 
 class TaskPipeline(BasePipeline):
     """
-    VideoThinkBench pipeline — downloads from HuggingFace into ``raw/``
-    and converts to the standardized format in ``data/questions/``.
-
-    REPLACE THIS with your own dataset pipeline when forking.
+    CoreCognition MCQA → Video-MCP style task conversion.
     """
 
     def __init__(self, config: TaskConfig):
@@ -35,19 +26,73 @@ class TaskPipeline(BasePipeline):
     # ── 2) Process ────────────────────────────────────────────────────────
 
     def process_sample(self, raw_sample: dict, idx: int) -> Optional[TaskSample]:
-        """Transform one VideoThinkBench sample to standardized format."""
+        """Render first/final frames and optional ground-truth clip."""
         domain = transforms.extract_domain(raw_sample, default=self.task_config.domain)
-        task_id = f"vtb_{self.task_config.split}_{idx:05d}"
+        task_id = f"{domain}_{idx:04d}"
+        source_image = transforms.extract_source_image(raw_sample)
+        if source_image is None:
+            return None
 
-        videos = transforms.extract_videos(raw_sample)
+        question = str(raw_sample.get("question", "")).strip()
+        choices = raw_sample.get("choices", {})
+        answer = str(raw_sample.get("answer", "")).strip().upper()
+        if not question or not choices or answer not in {"A", "B", "C", "D"}:
+            return None
+
+        first_frame = transforms.render_video_mcp_frame(
+            source_image=source_image,
+            question=question,
+            choices=choices,
+            lit_choice=None,
+            lit_progress=0.0,
+            lit_style=self.task_config.lit_style,
+            width=self.task_config.width,
+            height=self.task_config.height,
+        )
+        final_frame = transforms.render_video_mcp_frame(
+            source_image=source_image,
+            question=question,
+            choices=choices,
+            lit_choice=answer,
+            lit_progress=1.0,
+            lit_style=self.task_config.lit_style,
+            width=self.task_config.width,
+            height=self.task_config.height,
+        )
+        ground_truth_video = transforms.render_ground_truth_video(
+            source_image=source_image,
+            question=question,
+            choices=choices,
+            answer=answer,
+            task_id=task_id,
+            output_dir=self.task_config.output_dir.parent / "generated_videos",
+            fps=self.task_config.fps,
+            num_frames=self.task_config.num_frames,
+            width=self.task_config.width,
+            height=self.task_config.height,
+            lit_style=self.task_config.lit_style,
+        )
 
         return SampleProcessor.build_sample(
             task_id=task_id,
             domain=domain,
-            first_image=transforms.extract_first_image(raw_sample),
-            prompt=transforms.extract_prompt(raw_sample),
-            final_image=transforms.extract_final_image(raw_sample),
-            first_video=videos.get("first_video"),
-            last_video=videos.get("last_video"),
-            ground_truth_video=videos.get("ground_truth_video"),
+            first_image=first_frame,
+            prompt=transforms.format_prompt(raw_sample),
+            final_image=final_frame,
+            ground_truth_video=ground_truth_video,
+            metadata={
+                "dataset": raw_sample.get("dataset", "CoreCognition"),
+                "source_id": raw_sample.get("source_id"),
+                "choices": choices,
+                "answer": answer,
+                "image_filename": raw_sample.get("image_filename"),
+                "video_spec": {
+                    "fps": self.task_config.fps,
+                    "num_frames": self.task_config.num_frames,
+                    "width": self.task_config.width,
+                    "height": self.task_config.height,
+                    "lit_style": self.task_config.lit_style,
+                },
+                "ground_truth_video_generated": ground_truth_video is not None,
+            },
         )

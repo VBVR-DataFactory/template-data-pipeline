@@ -1,6 +1,8 @@
 # Template Data Pipeline
 
-A minimal template for converting existing datasets into the standardized VBVR format. Fork this repo and customize it for your dataset.
+A minimal template for converting existing datasets into the standardized VBVR format.
+
+This repository now includes a real built-in task implementation: **Video-MCP style generation** using **CoreCognition** data (question panel + progressive A/B/C/D highlight video).
 
 ---
 
@@ -43,8 +45,65 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Generate dataset
-python examples/generate.py --num-samples 50
+# 4. Required environment
+export HF_TOKEN="your_hf_token"   # required for CoreCognition dataset access
+ffmpeg -version                   # ffmpeg must be available on PATH
+
+# 5. Generate dataset (default built-in task: video-mcp style)
+python examples/generate.py --num-samples 50 --split train
+```
+
+---
+
+## Default Built-In Task: Video-MCP
+
+The default `src/` task in this repo is a **Video-MCP style MCQA task**:
+
+- Dataset source: `williamium/CoreCognition` (HF)
+- Input type: single-image MCQA examples
+- Rendered outputs:
+  - `first_frame.png` (no highlighted answer)
+  - `final_frame.png` (fully highlighted correct answer)
+  - `ground_truth.mp4` (progressive highlight over frames)
+  - `prompt.txt` (question + A/B/C/D + answer)
+
+### Run commands
+
+```bash
+# activate your venv first
+source venv/bin/activate
+
+# basic run
+python examples/generate.py --num-samples 50 --split train
+
+# custom video profile
+python examples/generate.py \
+  --num-samples 50 \
+  --width 832 \
+  --height 480 \
+  --num-frames 81 \
+  --fps 16 \
+  --lit-style darken
+```
+
+### Required environment
+
+- `HF_TOKEN` set in your shell (or `.env` exported into environment)
+- `ffmpeg` installed and on PATH (used to compile `ground_truth.mp4`)
+
+### Expected output tree
+
+```text
+data/questions/corecognition_task/
+├── corecognition_0000/
+│   ├── first_frame.png
+│   ├── final_frame.png
+│   ├── prompt.txt
+│   ├── ground_truth.mp4
+│   └── metadata.json
+├── corecognition_0001/
+│   └── ...
+└── ...
 ```
 
 ---
@@ -95,7 +154,7 @@ data/questions/{domain}_task/{task_id}/
 
 ## Customization (Two Modules to Modify)
 
-`core/download.py` always calls `src/download`, and `core/pipeline.py` always calls `src/pipeline`. Customize the `src/` modules for your dataset.
+`core/download.py` always calls `src/download`, and `core/pipeline.py` always calls `src/pipeline`. The current `src/` implementation is video-mcp style; replace only `src/` when adapting to another task.
 
 ### 1. Update `src/download/downloader.py`
 

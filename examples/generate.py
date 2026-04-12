@@ -9,7 +9,7 @@
 
 Usage:
     python examples/generate.py --num-samples 100
-    python examples/generate.py --num-samples 100 --output data/my_dataset --split test
+    python examples/generate.py --num-samples 100 --output data/my_dataset --split train
 """
 
 import argparse
@@ -47,8 +47,39 @@ Examples:
     parser.add_argument(
         "--split",
         type=str,
-        default="test",
-        help="Dataset split (default: test)"
+        default="train",
+        help="Dataset split (default: train)"
+    )
+    parser.add_argument(
+        "--width",
+        type=int,
+        default=832,
+        help="Rendered frame width in pixels (default: 832)"
+    )
+    parser.add_argument(
+        "--height",
+        type=int,
+        default=480,
+        help="Rendered frame height in pixels (default: 480)"
+    )
+    parser.add_argument(
+        "--num-frames",
+        type=int,
+        default=81,
+        help="Frames per ground-truth clip (default: 81)"
+    )
+    parser.add_argument(
+        "--fps",
+        type=int,
+        default=16,
+        help="Frames per second for generated clips (default: 16)"
+    )
+    parser.add_argument(
+        "--lit-style",
+        type=str,
+        default="darken",
+        choices=["darken", "red_border"],
+        help="Highlight style for answer reveal (default: darken)"
     )
 
     args = parser.parse_args()
@@ -64,6 +95,11 @@ Examples:
         num_samples=args.num_samples,
         output_dir=Path(args.output),
         split=args.split,
+        width=args.width,
+        height=args.height,
+        num_frames=args.num_frames,
+        fps=args.fps,
+        lit_style=args.lit_style,
     )
 
     # Run pipeline: download → transform → write
