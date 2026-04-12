@@ -28,7 +28,8 @@ class TaskPipeline(BasePipeline):
     def process_sample(self, raw_sample: dict, idx: int) -> Optional[TaskSample]:
         """Render first/final frames and optional ground-truth clip."""
         domain = transforms.extract_domain(raw_sample, default=self.task_config.domain)
-        task_id = f"{domain}_{idx:04d}"
+        global_idx = int(getattr(self.task_config, "start_index", 0)) + idx
+        task_id = f"{domain}_{global_idx:08d}"
         source_image = transforms.extract_source_image(raw_sample)
         if source_image is None:
             return None
@@ -93,6 +94,5 @@ class TaskPipeline(BasePipeline):
                     "height": self.task_config.height,
                     "lit_style": self.task_config.lit_style,
                 },
-                "ground_truth_video_generated": ground_truth_video is not None,
             },
         )

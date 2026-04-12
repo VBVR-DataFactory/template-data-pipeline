@@ -6,28 +6,80 @@ processing logic lives in ``src.pipeline``; this module always delegates
 to it via :func:`run_pipeline`.
 """
 
+import hashlib
 import json
+import subprocess
 import shutil
 from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Union
 
 import numpy as np
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ============================================================================
 #  Pydantic schemas
 # ============================================================================
 
+def _default_generator_name() -> str:
+    """Best-effort default generator folder name (repo root directory name)."""
+    try:
+        return Path(__file__).resolve().parents[1].name
+    except Exception:
+        return "generator"
+
+
+def _utc_timestamp() -> str:
+    """Match VBVR-DataFactory timestamp style: ISO without timezone, microseconds."""
+    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")
+
+
+def _stable_json(obj: Any) -> str:
+    """Stable JSON for hashing (sorted keys, compact separators)."""
+    return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _param_hash(parameters: Dict[str, Any]) -> str:
+    """SHA256 of parameters (first 16 hex chars), for VBVR-style dedup."""
+    payload = _stable_json(parameters).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
+def _git_info() -> Dict[str, Optional[str]]:
+    """Best-effort git metadata for reproducibility (commit/branch/repo)."""
+    repo_root = Path(__file__).resolve().parents[1]
+
+    def _run(args: list[str]) -> Optional[str]:
+        try:
+            out = subprocess.check_output(
+                ["git", *args],
+                cwd=str(repo_root),
+                stderr=subprocess.DEVNULL,
+                text=True,
+            ).strip()
+            return out or None
+        except Exception:
+            return None
+
+    return {
+        "commit": _run(["rev-parse", "HEAD"]),
+        "branch": _run(["rev-parse", "--abbrev-ref", "HEAD"]),
+        "repo": _run(["config", "--get", "remote.origin.url"]),
+    }
+
+
 class PipelineConfig(BaseModel):
     """Pipeline configuration — base class for task-specific configs."""
 
     num_samples: Optional[int] = None
     domain: str = "dataset"
+    generator: str = Field(default_factory=_default_generator_name)
+    seed: Optional[int] = None
+    start_index: int = Field(default=0, ge=0)
     output_dir: Path = Path("data/questions")
-    split: str = "test"
 
 
 class TaskSample(BaseModel):
@@ -36,6 +88,8 @@ class TaskSample(BaseModel):
     Mirrors the TaskPair schema from template-data-generator so both
     generators and pipelines produce the same on-disk layout.
     """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     task_id: str
     domain: str
@@ -46,9 +100,6 @@ class TaskSample(BaseModel):
     last_video: Optional[str] = None  # Path to last segment video
     ground_truth_video: Optional[str] = None  # Path to full video
     metadata: Optional[Dict[str, Any]] = None
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 # ============================================================================
@@ -171,7 +222,7 @@ class OutputWriter:
 
     Produces::
 
-        data/questions/{domain}_task/{task_id}/
+        data/questions/{generator}/{domain}_task/{task_id}/
         ├── first_frame.png
         ├── final_frame.png
         ├── prompt.txt
@@ -181,13 +232,19 @@ class OutputWriter:
         └── metadata.json
     """
 
-    def __init__(self, output_dir: Path):
-        self.output_dir = Path(output_dir)
+    def __init__(self, config: PipelineConfig):
+        self.config = config
+        self.output_dir = Path(config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def write_sample(self, sample: TaskSample) -> Path:
         """Write a single sample to disk."""
-        task_dir = self.output_dir / f"{sample.domain}_task" / sample.task_id
+        task_dir = (
+            self.output_dir
+            / self.config.generator
+            / f"{sample.domain}_task"
+            / sample.task_id
+        )
         task_dir.mkdir(parents=True, exist_ok=True)
 
         # Write images
@@ -198,7 +255,7 @@ class OutputWriter:
             sample.final_image.save(task_dir / "final_frame.png")
 
         # Write prompt
-        (task_dir / "prompt.txt").write_text(sample.prompt)
+        (task_dir / "prompt.txt").write_text(sample.prompt, encoding="utf-8")
 
         # Write videos if provided
         for video_path, filename in [
@@ -210,11 +267,37 @@ class OutputWriter:
                 video_src = Path(video_path)
                 shutil.copy(video_src, task_dir / filename)
 
-        # Write metadata
-        if sample.metadata is not None:
-            (task_dir / "metadata.json").write_text(
-                json.dumps(sample.metadata, ensure_ascii=False, indent=2)
-            )
+        # Write metadata (VBVR-DataFactory compatible envelope)
+        parameters: Dict[str, Any] = {}
+        if sample.metadata:
+            parameters.update(sample.metadata)
+
+        # Add deterministic pipeline-level parameters when available
+        pipeline_params: Dict[str, Any] = {"domain": sample.domain}
+        for key in ("hf_repo", "hf_zip_filename", "fps", "num_frames", "width", "height", "lit_style"):
+            if hasattr(self.config, key):
+                value = getattr(self.config, key)
+                if value is not None:
+                    pipeline_params[key] = value
+        if pipeline_params:
+            parameters.setdefault("pipeline", pipeline_params)
+
+        metadata = {
+            "task_id": sample.task_id,
+            "generator": self.config.generator,
+            "timestamp": _utc_timestamp(),
+            "parameters": parameters,
+            "param_hash": _param_hash(parameters),
+            "generation": {
+                "seed": self.config.seed,
+                "git": _git_info(),
+            },
+        }
+
+        (task_dir / "metadata.json").write_text(
+            json.dumps(metadata, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
         return task_dir
 
@@ -325,7 +408,7 @@ class BasePipeline(ABC):
         Returns:
             List of successfully processed :class:`TaskSample` objects.
         """
-        writer = OutputWriter(self.config.output_dir)
+        writer = OutputWriter(self.config)
         samples: List[TaskSample] = []
         processed = 0
 
@@ -344,7 +427,7 @@ class BasePipeline(ABC):
 
         print(
             f"Done! Processed {processed} samples "
-            f"-> {self.config.output_dir}/{self.config.domain}_task/"
+            f"-> {self.config.output_dir}/{self.config.generator}/{self.config.domain}_task/"
         )
         return samples
 

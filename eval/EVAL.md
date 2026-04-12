@@ -38,7 +38,7 @@ pip install -r eval/requirements.txt
 # Evaluate a single video against one GT sample
 python eval/verify.py \
     --video path/to/generated_video.mp4 \
-    --gt-dir data/questions/videothinkbench_task/vtb_test_00000/
+    --gt-dir data/questions/{generator}/corecognition_task/corecognition_00000000/
 
 # Batch evaluate all videos against GT
 python eval/verify.py \
@@ -48,14 +48,14 @@ python eval/verify.py \
 # Save results as JSON
 python eval/verify.py \
     --video path/to/generated_video.mp4 \
-    --gt-dir data/questions/videothinkbench_task/vtb_test_00000/ \
+    --gt-dir data/questions/{generator}/corecognition_task/corecognition_00000000/ \
     --output results.json
 ```
 
 ### Output
 
 ```
-Task: vtb_test_00000
+Task: corecognition_0000
   first_frame_consistency:  0.95  (weight: 0.15)
   final_frame_accuracy:     0.72  (weight: 0.35)
   temporal_smoothness:      0.88  (weight: 0.15)
@@ -106,7 +106,7 @@ For datasets where automated metrics may not capture all quality aspects, consid
 
 **Ground truth** (produced by the pipeline):
 ```
-data/questions/{domain}_task/{task_id}/
+data/questions/{generator}/{domain}_task/{task_id}/
 ├── first_frame.png
 ├── final_frame.png
 ├── prompt.txt

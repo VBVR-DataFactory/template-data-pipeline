@@ -11,7 +11,6 @@ class TaskConfig(PipelineConfig):
     """Dataset + rendering settings for Video-MCP style generation."""
 
     domain: str = Field(default="corecognition")
-    split: str = Field(default="train")
 
     hf_repo: str = Field(
         default="williamium/CoreCognition",

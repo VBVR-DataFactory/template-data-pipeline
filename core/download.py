@@ -23,7 +23,7 @@ class HuggingFaceDownloader:
     and limiting the number of samples.
     """
 
-    def __init__(self, repo_id: str, split: str = "test", raw_dir: Path = Path("raw")):
+    def __init__(self, repo_id: str, split: Optional[str] = None, raw_dir: Path = Path("raw")):
         self.repo_id = repo_id
         self.split = split
         self.raw_dir = Path(raw_dir)
@@ -40,12 +40,32 @@ class HuggingFaceDownloader:
             Raw sample dicts straight from HuggingFace.
         """
         self.raw_dir.mkdir(parents=True, exist_ok=True)
-        print(f"Downloading {self.repo_id} (split: {self.split}) → {self.raw_dir}/")
-        dataset = load_dataset(
-            self.repo_id,
-            split=self.split,
-            cache_dir=str(self.raw_dir / ".cache"),
-        )
+        cache_dir = str(self.raw_dir / ".cache")
+
+        if self.split is None:
+            print(f"Downloading {self.repo_id} (split: auto) → {self.raw_dir}/")
+            dataset_obj = load_dataset(self.repo_id, cache_dir=cache_dir)
+            if hasattr(dataset_obj, "keys"):
+                # DatasetDict-like: choose a reasonable default split.
+                candidates = ("train", "test", "validation")
+                chosen = next((c for c in candidates if c in dataset_obj), None)
+                if chosen is None:
+                    keys = list(dataset_obj.keys())
+                    chosen = keys[0] if keys else None
+                if chosen is None:
+                    raise ValueError(f"No splits found for dataset: {self.repo_id}")
+                self.split = chosen
+                print(f"Using split: {self.split}")
+                dataset = dataset_obj[self.split]
+            else:
+                dataset = dataset_obj
+        else:
+            print(f"Downloading {self.repo_id} (split: {self.split}) → {self.raw_dir}/")
+            dataset = load_dataset(
+                self.repo_id,
+                split=self.split,
+                cache_dir=cache_dir,
+            )
 
         if limit is not None:
             dataset = dataset.select(range(min(limit, len(dataset))))

@@ -45,12 +45,8 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
 
-# 4. Required environment
-export HF_TOKEN="your_hf_token"   # required for CoreCognition dataset access
-ffmpeg -version                   # ffmpeg must be available on PATH
-
-# 5. Generate dataset (default built-in task: video-mcp style)
-python examples/generate.py --num-samples 50 --split train
+# 4. Generate dataset (default built-in task: video-mcp style)
+python examples/generate.py --num-samples 50
 ```
 
 ---
@@ -74,7 +70,7 @@ The default `src/` task in this repo is a **Video-MCP style MCQA task**:
 source venv/bin/activate
 
 # basic run
-python examples/generate.py --num-samples 50 --split train
+python examples/generate.py --num-samples 50
 
 # custom video profile
 python examples/generate.py \
@@ -88,20 +84,23 @@ python examples/generate.py \
 
 ### Required environment
 
+These are **task-specific** requirements for the current built-in Video-MCP task,
+not global template requirements:
+
 - `HF_TOKEN` set in your shell (or `.env` exported into environment)
 - `ffmpeg` installed and on PATH (used to compile `ground_truth.mp4`)
 
 ### Expected output tree
 
 ```text
-data/questions/corecognition_task/
-├── corecognition_0000/
+data/questions/{generator}/corecognition_task/
+├── corecognition_00000000/
 │   ├── first_frame.png
 │   ├── final_frame.png
 │   ├── prompt.txt
 │   ├── ground_truth.mp4
 │   └── metadata.json
-├── corecognition_0001/
+├── corecognition_00000001/
 │   └── ...
 └── ...
 ```
@@ -140,7 +139,7 @@ template-data-pipeline/
 Every pipeline produces:
 
 ```
-data/questions/{domain}_task/{task_id}/
+data/questions/{generator}/{domain}_task/{task_id}/
 ├── first_frame.png          # Initial state (REQUIRED)
 ├── final_frame.png          # Goal state (optional)
 ├── prompt.txt               # Instructions (REQUIRED)
@@ -167,7 +166,6 @@ class TaskDownloader:
     def __init__(self, config):
         self.hf_downloader = HuggingFaceDownloader(
             repo_id=config.hf_repo,
-            split=config.split,
         )
 
     def download(self, limit=None):

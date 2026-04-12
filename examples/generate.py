@@ -9,7 +9,8 @@
 
 Usage:
     python examples/generate.py --num-samples 100
-    python examples/generate.py --num-samples 100 --output data/my_dataset --split train
+    python examples/generate.py --num-samples 100 --output data/my_dataset
+    python examples/generate.py --num-samples 100 --seed 42
 """
 
 import argparse
@@ -29,7 +30,7 @@ def main():
         epilog="""
 Examples:
     python examples/generate.py --num-samples 10
-    python examples/generate.py --num-samples 100 --output data/output --split test
+    python examples/generate.py --num-samples 100 --output data/output
         """
     )
     parser.add_argument(
@@ -39,16 +40,28 @@ Examples:
         help="Maximum number of samples to process (default: all)"
     )
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="Optional random seed (used for reproducibility/shuffling when supported)",
+    )
+    parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="Starting global sample index for IDs (default: 0)",
+    )
+    parser.add_argument(
+        "--generator",
+        type=str,
+        default=None,
+        help="Generator folder name (default: repo directory name)",
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default="data/questions",
         help="Output directory (default: data/questions)"
-    )
-    parser.add_argument(
-        "--split",
-        type=str,
-        default="train",
-        help="Dataset split (default: train)"
     )
     parser.add_argument(
         "--width",
@@ -91,22 +104,27 @@ Examples:
     #  Add any additional TaskConfig parameters as needed
     # ──────────────────────────────────────────────────────────────────────────
 
-    config = TaskConfig(
+    config_kwargs = dict(
         num_samples=args.num_samples,
         output_dir=Path(args.output),
-        split=args.split,
+        seed=args.seed,
+        start_index=args.start_index,
         width=args.width,
         height=args.height,
         num_frames=args.num_frames,
         fps=args.fps,
         lit_style=args.lit_style,
     )
+    if args.generator is not None:
+        config_kwargs["generator"] = args.generator
+
+    config = TaskConfig(**config_kwargs)
 
     # Run pipeline: download → transform → write
     pipeline = TaskPipeline(config)
     samples = pipeline.run()
 
-    print(f"Wrote {len(samples)} samples to {args.output}/")
+    print(f"Wrote {len(samples)} samples to {config.output_dir}/{config.generator}/")
 
 
 if __name__ == "__main__":

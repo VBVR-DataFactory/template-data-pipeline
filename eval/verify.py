@@ -7,13 +7,13 @@ All evaluation logic is included here. Customize the TaskEvaluator class for you
 
 Usage:
     # Single video evaluation
-    python eval/verify.py --video generated.mp4 --gt-dir data/questions/videothinkbench_task/vtb_test_00000/
+    python eval/verify.py --video generated.mp4 --gt-dir data/questions/{generator}/corecognition_task/corecognition_00000000/
 
     # Batch evaluation
     python eval/verify.py --videos-dir model_outputs/ --gt-dir data/questions/
 
     # Save results to JSON
-    python eval/verify.py --video generated.mp4 --gt-dir data/questions/videothinkbench_task/vtb_test_00000/ --output results.json
+    python eval/verify.py --video generated.mp4 --gt-dir data/questions/{generator}/corecognition_task/corecognition_00000000/ --output results.json
 """
 
 import argparse
@@ -360,8 +360,8 @@ def find_video_gt_pairs(videos_dir: str, gt_dir: str) -> List[Tuple[str, str]]:
     Discover (video, gt_folder) pairs for batch evaluation.
 
     Supports two layouts:
-      1. Flat: videos_dir/{task_id}.mp4 matched to gt_dir/{domain}_task/{task_id}/
-      2. Nested: videos_dir/{domain}_task/{task_id}/generated.mp4
+      1. Flat: videos_dir/{task_id}.mp4 matched to gt_dir/**/{task_id}/
+      2. Nested: videos_dir/**/{task_id}/*.mp4
 
     Returns list of (video_path, gt_sample_dir) tuples.
     """
@@ -461,7 +461,7 @@ def main():
     else:
         parser.print_help()
         print("\nExamples:")
-        print("  python eval/verify.py --video out.mp4 --gt-dir data/questions/videothinkbench_task/vtb_test_00000/")
+        print("  python eval/verify.py --video out.mp4 --gt-dir data/questions/{generator}/corecognition_task/corecognition_00000000/")
         print("  python eval/verify.py --videos-dir model_outputs/ --gt-dir data/questions/")
         sys.exit(1)
 
