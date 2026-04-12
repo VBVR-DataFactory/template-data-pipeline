@@ -66,7 +66,6 @@ class TaskPipeline(BasePipeline):
             choices=choices,
             answer=answer,
             task_id=task_id,
-            output_dir=self.task_config.output_dir.parent / "generated_videos",
             fps=self.task_config.fps,
             num_frames=self.task_config.num_frames,
             width=self.task_config.width,

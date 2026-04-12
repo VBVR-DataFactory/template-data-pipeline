@@ -129,7 +129,6 @@ def render_ground_truth_video(
     choices: dict[str, str],
     answer: str,
     task_id: str,
-    output_dir: Path,
     fps: int,
     num_frames: int,
     width: int,
@@ -137,8 +136,13 @@ def render_ground_truth_video(
     lit_style: str,
 ) -> Optional[str]:
     """Render progressive highlighted frames and compile into mp4 using ffmpeg."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"{task_id}.mp4"
+    staged_video = tempfile.NamedTemporaryFile(
+        prefix="vbvr_tmp_",
+        suffix=f"_{task_id}.mp4",
+        delete=False,
+    )
+    output_path = Path(staged_video.name)
+    staged_video.close()
 
     try:
         with tempfile.TemporaryDirectory() as tmp:
@@ -182,4 +186,5 @@ def render_ground_truth_video(
             subprocess.run(cmd, check=True)
         return str(output_path)
     except (FileNotFoundError, subprocess.CalledProcessError):
+        output_path.unlink(missing_ok=True)
         return None

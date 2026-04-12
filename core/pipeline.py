@@ -8,8 +8,9 @@ to it via :func:`run_pipeline`.
 
 import hashlib
 import json
-import subprocess
 import shutil
+import subprocess
+import tempfile
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
@@ -266,6 +267,20 @@ class OutputWriter:
             if video_path is not None and Path(video_path).exists():
                 video_src = Path(video_path)
                 shutil.copy(video_src, task_dir / filename)
+                # Clean up staged temp videos created during rendering.
+                temp_dir = Path(tempfile.gettempdir()).resolve()
+                try:
+                    resolved_src = video_src.resolve()
+                except OSError:
+                    resolved_src = video_src
+                if (
+                    video_src.name.startswith("vbvr_tmp_")
+                    and temp_dir in resolved_src.parents
+                ):
+                    try:
+                        video_src.unlink(missing_ok=True)
+                    except OSError:
+                        pass
 
         # Write metadata (VBVR-DataFactory compatible envelope)
         parameters: Dict[str, Any] = {}
